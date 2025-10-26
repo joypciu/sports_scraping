@@ -1,13 +1,13 @@
-# 🏈 Bet365 Sports Scraping Platform
+# 🏈 Bet Sports Scraping Platform
 
-A modern, real-time sports betting data extraction system for bet365.ca with web dashboard and API.
+A modern, real-time sports betting data extraction system for bet.ca with web dashboard and API.
 
 ## 🚀 Quick Start
 
 **Start everything with one command:**
 
 ```bash
-cd "bet365 demo"
+cd "bet demo"
 P:/Mamba/Scripts/conda.exe run -p "C:\data\joy" --no-capture-output python dashboard_api.py
 ```
 
@@ -48,7 +48,7 @@ python -c "import patchright, fastapi; print('✅ Ready to go!')"
 │   SCRAPER       │    │    SCRAPER      │    │      API        │
 │                 │    │                 │    │                 │
 │ • pregame_new   │    │ • concurrency_  │    │ • dashboard_    │
-│ • realtime_     │    │   live_bet365   │    │   api.py        │
+│ • realtime_     │    │   live_bet   │    │   api.py        │
 │   monitor       │    │                 │    │ • index.html    │
 └─────────────────┘    └─────────────────┘    └─────────────────┘
          │                       │                       │
@@ -69,7 +69,7 @@ python -c "import patchright, fastapi; print('✅ Ready to go!')"
 |------|---------|-------|
 | `dashboard_api.py` | **Main entry point** - Web dashboard + API | `python dashboard_api.py` |
 | `pregame_new.py` | Pregame scraper | `python pregame_new.py` |
-| `concurrency_live_bet365.py` | Live scraper | `python concurrency_live_bet365.py --mode monitor` |
+| `concurrency_live_bet.py` | Live scraper | `python concurrency_live_bet.py --mode monitor` |
 | `realtime_monitor.py` | Real-time monitoring | `python realtime_monitor.py` |
 | `index.html` | Web dashboard UI | Auto-served by dashboard_api.py |
 
@@ -86,7 +86,7 @@ python -c "import patchright, fastapi; print('✅ Ready to go!')"
 
 ## 📊 Output Data
 
-### Live Matches (`bet365_live_current.json`)
+### Live Matches (`bet_live_current.json`)
 ```json
 {
   "match_id": "live_12345",
@@ -118,7 +118,7 @@ python dashboard_api.py
 python pregame_new.py --headless
 
 # Monitor live betting continuously
-python concurrency_live_bet365.py --mode monitor --interval 10
+python concurrency_live_bet.py --mode monitor --interval 10
 
 # Real-time pregame monitoring
 python realtime_monitor.py
