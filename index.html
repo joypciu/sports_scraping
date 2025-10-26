@@ -1,0 +1,1334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Odds Dashboard for Bet365 Demo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        * { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Helvetica Neue", Arial, sans-serif;
+            scroll-behavior: smooth;
+        }
+        
+        body {
+            background: #0d1117;
+        }
+        
+        .card {
+            background: #161b22;
+            border: 1px solid #30363d;
+            transition: border-color 0.2s ease;
+        }
+        
+        .card:hover {
+            border-color: #58a6ff;
+        }
+        
+        .odds-button {
+            background: #21262d;
+            border: 1px solid #30363d;
+            transition: all 0.15s ease;
+            cursor: pointer;
+        }
+        
+        .odds-button:hover {
+            background: #30363d;
+            border-color: #58a6ff;
+        }
+        
+        .odds-button:active {
+            background: #161b22;
+        }
+        
+        input[type="text"],
+        select {
+            background: #161b22;
+            border: 1px solid #30363d;
+            color: #c9d1d9;
+        }
+        
+        input[type="text"]:focus,
+        select:focus {
+            outline: none;
+            border-color: #58a6ff;
+        }
+        
+        .live-indicator {
+            background: #dc2626;
+            animation: pulse 2s ease-in-out infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+        
+        .btn-primary {
+            background: #238636;
+            border: 1px solid #2ea043;
+            transition: background 0.15s ease;
+        }
+        
+        .btn-primary:hover {
+            background: #2ea043;
+        }
+        
+        .btn-secondary {
+            background: #21262d;
+            border: 1px solid #30363d;
+            transition: all 0.15s ease;
+        }
+        
+        .btn-secondary:hover {
+            background: #30363d;
+            border-color: #58a6ff;
+        }
+        
+        .btn-live {
+            background: #dc2626;
+            border: 1px solid #ef4444;
+        }
+        
+        .btn-live-outline {
+            background: transparent;
+            border: 1px solid #dc2626;
+            color: #dc2626;
+        }
+        
+        .btn-live-outline:hover {
+            background: rgba(220, 38, 38, 0.1);
+        }
+        
+        .status-connected {
+            color: #3fb950;
+        }
+        
+        .status-disconnected {
+            color: #dc2626;
+        }
+        
+        .status-connecting {
+            color: #f0883e;
+        }
+        
+        .update-flash {
+            animation: flash 0.5s ease-out;
+        }
+        
+        @keyframes flash {
+            0% { background-color: rgba(88, 166, 255, 0.3); }
+            100% { background-color: transparent; }
+        }
+        
+        .animate-in {
+            animation-fill-mode: both;
+        }
+        
+        .slide-in-from-top-2 {
+            animation: slide-in-from-top-2 0.2s ease-out;
+        }
+        
+        @keyframes slide-in-from-top-2 {
+            0% {
+                opacity: 0;
+                transform: translateY(-8px);
+            }
+            100% {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .filter-transition {
+            transition: all 0.2s ease-in-out;
+        }
+        
+        .match-card-stable {
+            transition: border-color 0.15s ease, transform 0.15s ease;
+        }
+        
+        .match-card-stable:hover {
+            transform: translateY(-1px);
+        }
+        
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #21262d;
+            border: 1px solid #58a6ff;
+            border-radius: 6px;
+            padding: 12px 16px;
+            z-index: 1000;
+            animation: slideIn 0.3s ease-out;
+        }
+        
+        @keyframes slideIn {
+            from { transform: translateX(400px); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        
+        .stat-card {
+            background: #0d1117;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            padding: 12px;
+        }
+    </style>
+</head>
+<body class="text-white">
+    <div id="root">
+        <div class="min-h-screen flex items-center justify-center">
+            <div class="text-center">
+                <div class="inline-block animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-blue-500 mb-4"></div>
+                <h2 className="text-xl font-semibold text-gray-300">Connecting to server...</h2>
+            </div>
+        </div>
+    </div>
+
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <script type="text/babel">
+        const { useState, useEffect, useMemo, useRef, useCallback } = React;
+
+        // Icon Components
+        const SearchIcon = () => (
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
+            </svg>
+        );
+
+        const RefreshIcon = ({ spinning }) => (
+            <svg className={`w-5 h-5 ${spinning ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/>
+                <path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/>
+                <path d="M3 21v-5h5"/>
+            </svg>
+        );
+
+        const ChevronDownIcon = () => (
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path d="m6 9 6 6 6-6"/>
+            </svg>
+        );
+
+        const ChevronUpIcon = () => (
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path d="m18 15-6-6-6 6"/>
+            </svg>
+        );
+
+        const BellIcon = () => (
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
+            </svg>
+        );
+
+        const CloseIcon = () => (
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+        );
+
+        // Notification Component
+        const Notification = ({ message, onClose }) => {
+            useEffect(() => {
+                const timer = setTimeout(onClose, 5000);
+                return () => clearTimeout(timer);
+            }, [onClose]);
+
+            return (
+                <div className="notification flex items-center gap-3">
+                    <BellIcon />
+                    <span className="text-sm text-gray-300">{message}</span>
+                    <button onClick={onClose} className="text-gray-400 hover:text-white">
+                        <CloseIcon />
+                    </button>
+                </div>
+            );
+        };
+
+        // Helper function to format dates nicely
+        const formatDate = (dateString) => {
+            if (!dateString) return new Date().toLocaleDateString();
+            
+            try {
+                // Handle different date formats
+                let date;
+                if (dateString.includes('-')) {
+                    // Format: "2025-10-26" - parse as YYYY-MM-DD
+                    const parts = dateString.split('-');
+                    if (parts.length === 3) {
+                        const year = parseInt(parts[0]);
+                        const month = parseInt(parts[1]) - 1; // JavaScript months are 0-indexed
+                        const day = parseInt(parts[2]);
+                        date = new Date(year, month, day);
+                        console.log('Date parsing debug:', { dateString, year, month: month + 1, day, parsedDate: date });
+                    } else {
+                        date = new Date(dateString);
+                    }
+                } else {
+                    date = new Date(dateString);
+                }
+                
+                // Validate the date
+                if (isNaN(date.getTime())) {
+                    return dateString; // Return original if invalid
+                }
+                
+                const today = new Date();
+                const tomorrow = new Date(today);
+                tomorrow.setDate(tomorrow.getDate() + 1);
+                
+                // Compare dates by setting time to midnight for accurate comparison
+                const dateOnly = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+                const todayOnly = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+                const tomorrowOnly = new Date(tomorrow.getFullYear(), tomorrow.getMonth(), tomorrow.getDate());
+                
+                if (dateOnly.getTime() === todayOnly.getTime()) {
+                    return 'Today';
+                } else if (dateOnly.getTime() === tomorrowOnly.getTime()) {
+                    return 'Tomorrow';
+                } else {
+                    return date.toLocaleDateString('en-US', { 
+                        month: 'short', 
+                        day: 'numeric',
+                        year: date.getFullYear() !== today.getFullYear() ? 'numeric' : undefined
+                    });
+                }
+            } catch (error) {
+                console.error('Date parsing error:', error, 'for dateString:', dateString);
+                return dateString; // Return original if parsing fails
+            }
+        };
+
+        // Main Dashboard Component
+        const Dashboard = () => {
+            const [matches, setMatches] = useState([]);
+            const [loading, setLoading] = useState(true);
+            const [searchTerm, setSearchTerm] = useState('');
+            const [selectedSport, setSelectedSport] = useState('all');
+            const [filterMode, setFilterMode] = useState('all'); // 'all', 'live', 'pregame'
+            const [expandedMatch, setExpandedMatch] = useState(null);
+            const [connectionStatus, setConnectionStatus] = useState('connecting');
+            const [lastUpdate, setLastUpdate] = useState(null);
+            const [summary, setSummary] = useState({});
+            const [notifications, setNotifications] = useState([]);
+            const [updatedMatches, setUpdatedMatches] = useState(new Set());
+            const [historicalMatches, setHistoricalMatches] = useState([]);
+            const [showHistory, setShowHistory] = useState(false);
+            const [filterLoading, setFilterLoading] = useState(false);
+            
+            const wsRef = useRef(null);
+            const reconnectTimeoutRef = useRef(null);
+            const notificationIdRef = useRef(0);
+            const searchDebounceRef = useRef(null);
+            const lastFilterChangeRef = useRef(Date.now());
+            const filterTimeoutRef = useRef(null);
+
+            // Debounced search handler
+            const debouncedSearch = useCallback((searchValue) => {
+                if (searchDebounceRef.current) {
+                    clearTimeout(searchDebounceRef.current);
+                }
+                searchDebounceRef.current = setTimeout(() => {
+                    setSearchTerm(searchValue);
+                }, 300);
+            }, []);
+
+            // Safe filter change handler with loading state
+            const handleFilterChange = useCallback((newFilterMode) => {
+                if (filterTimeoutRef.current) {
+                    clearTimeout(filterTimeoutRef.current);
+                }
+                
+                setFilterLoading(true);
+                lastFilterChangeRef.current = Date.now();
+                
+                // Batch state updates for better performance
+                setTimeout(() => {
+                    setFilterMode(newFilterMode);
+                    setExpandedMatch(null);
+                    
+                    // Clear loading state after a brief delay
+                    filterTimeoutRef.current = setTimeout(() => {
+                        setFilterLoading(false);
+                    }, 150);
+                }, 10);
+                
+                // Clear any pending search debounce
+                if (searchDebounceRef.current) {
+                    clearTimeout(searchDebounceRef.current);
+                }
+            }, []);
+
+            // WebSocket connection
+            const connectWebSocket = useCallback(() => {
+                if (wsRef.current?.readyState === WebSocket.OPEN) {
+                    return;
+                }
+
+                setConnectionStatus('connecting');
+                
+                const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+                const wsUrl = `${protocol}//${window.location.host}/ws`;
+                
+                try {
+                    const ws = new WebSocket(wsUrl);
+                    
+                    ws.onopen = () => {
+                        console.log('WebSocket connected');
+                        setConnectionStatus('connected');
+                        setLoading(false);
+                        
+                        // Clear reconnect timeout
+                        if (reconnectTimeoutRef.current) {
+                            clearTimeout(reconnectTimeoutRef.current);
+                        }
+                    };
+                    
+                    ws.onmessage = (event) => {
+                        try {
+                            const data = JSON.parse(event.data);
+                            
+                            if (data.type === 'initial' || data.type === 'update') {
+                                const newMatches = data.data.matches || [];
+                                
+                                // Prevent data updates from interfering with recent filter changes
+                                const timeSinceLastFilter = Date.now() - lastFilterChangeRef.current;
+                                if (timeSinceLastFilter < 500) {
+                                    // Skip update if filter was changed very recently
+                                    console.log('Skipping data update due to recent filter change');
+                                    return;
+                                }
+                                
+                                // Rate limiting for data updates
+                                if (data.type === 'update') {
+                                    const updateFrequency = 1000; // Minimum 1 second between updates
+                                    const lastUpdateTime = sessionStorage.getItem('lastDataUpdate');
+                                    const now = Date.now();
+                                    
+                                    if (lastUpdateTime && (now - parseInt(lastUpdateTime)) < updateFrequency) {
+                                        console.log('Rate limiting data update');
+                                        return;
+                                    }
+                                    
+                                    sessionStorage.setItem('lastDataUpdate', now.toString());
+                                }
+                                
+                                // Check for new matches and data source changes
+                                setMatches(prevMatches => {
+                                    if (prevMatches.length > 0 && newMatches.length > prevMatches.length) {
+                                        const newCount = newMatches.length - prevMatches.length;
+                                        const newLiveCount = newMatches.filter(m => m.live_fields?.is_live).length;
+                                        const oldLiveCount = prevMatches.filter(m => m.live_fields?.is_live).length;
+                                        
+                                        addNotification(`${newCount} new match${newCount > 1 ? 'es' : ''} added`);
+                                        
+                                        // Notify about data source changes
+                                        if (newLiveCount !== oldLiveCount) {
+                                            const liveChange = newLiveCount - oldLiveCount;
+                                            if (liveChange > 0) {
+                                                addNotification(`${liveChange} match${liveChange > 1 ? 'es' : ''} went live`);
+                                            }
+                                        }
+                                    }
+                                    
+                                    // Smart data merging - preserve existing state when possible
+                                    const updatedIds = new Set();
+                                    const existingMatchesMap = new Map(prevMatches.map(m => [m.id, m]));
+                                    const newMatchesMap = new Map(newMatches.map(m => [m.id, m]));
+                                    
+                                    // Check for updates in existing matches
+                                    newMatches.forEach(newMatch => {
+                                        const existingMatch = existingMatchesMap.get(newMatch.id);
+                                        if (existingMatch) {
+                                            // Only update if there are meaningful changes (ignore timestamp-only changes)
+                                            const { timestamp: newTs, ...newData } = newMatch;
+                                            const { timestamp: oldTs, ...oldData } = existingMatch;
+                                            if (JSON.stringify(newData) !== JSON.stringify(oldData)) {
+                                                updatedIds.add(newMatch.id);
+                                            }
+                                        }
+                                    });
+                                    
+                                    // Merge data with minimal disruption
+                                    const stableMatches = [];
+                                    const processedIds = new Set();
+                                    
+                                    // Preserve order and state of existing matches
+                                    prevMatches.forEach(existingMatch => {
+                                        if (newMatchesMap.has(existingMatch.id)) {
+                                            stableMatches.push(newMatchesMap.get(existingMatch.id));
+                                            processedIds.add(existingMatch.id);
+                                        }
+                                    });
+                                    
+                                    // Add new matches at the end
+                                    newMatches.forEach(newMatch => {
+                                        if (!processedIds.has(newMatch.id)) {
+                                            stableMatches.push(newMatch);
+                                        }
+                                    });
+                                    
+                                    if (updatedIds.size > 0) {
+                                        setUpdatedMatches(updatedIds);
+                                        setTimeout(() => setUpdatedMatches(new Set()), 1000);
+                                    }
+                                    
+                                    return stableMatches;
+                                });
+                                
+                                setSummary(data.data.summary || {});
+                                setLastUpdate(new Date().toLocaleTimeString());
+                            }
+                        } catch (error) {
+                            console.error('Error parsing WebSocket message:', error);
+                        }
+                    };
+                    
+                    ws.onerror = (error) => {
+                        console.error('WebSocket error:', error);
+                        setConnectionStatus('disconnected');
+                    };
+                    
+                    ws.onclose = () => {
+                        console.log('WebSocket disconnected');
+                        setConnectionStatus('disconnected');
+                        wsRef.current = null;
+                        
+                        // Attempt to reconnect after 3 seconds
+                        reconnectTimeoutRef.current = setTimeout(() => {
+                            console.log('Attempting to reconnect...');
+                            connectWebSocket();
+                        }, 3000);
+                    };
+                    
+                    wsRef.current = ws;
+                    
+                    // Send ping every 30 seconds to keep connection alive
+                    const pingInterval = setInterval(() => {
+                        if (ws.readyState === WebSocket.OPEN) {
+                            ws.send('ping');
+                        }
+                    }, 30000);
+                    
+                    // Cleanup ping interval when connection closes
+                    ws.addEventListener('close', () => clearInterval(pingInterval));
+                    
+                } catch (error) {
+                    console.error('Failed to connect WebSocket:', error);
+                    setConnectionStatus('disconnected');
+                    setLoading(false);
+                }
+            }, [matches]);
+
+            // Fallback HTTP polling if WebSocket fails
+            const fetchMatches = useCallback(async () => {
+                try {
+                    const response = await fetch('/api/live-matches');
+                    const data = await response.json();
+                    
+                    if (data.matches) {
+                        setMatches(data.matches);
+                        setSummary(data.summary || {});
+                        setLastUpdate(new Date().toLocaleTimeString());
+                        setLoading(false);
+                    }
+                } catch (error) {
+                    console.error('Failed to fetch matches:', error);
+                    setLoading(false);
+                }
+            }, []);
+
+            // Fetch historical matches
+            const fetchHistoricalMatches = useCallback(async () => {
+                try {
+                    const response = await fetch('/api/historical-matches');
+                    const data = await response.json();
+                    
+                    if (data.historical_matches) {
+                        setHistoricalMatches(data.historical_matches);
+                    }
+                } catch (error) {
+                    console.error('Failed to fetch historical matches:', error);
+                }
+            }, []);
+
+            // Initialize connection
+            useEffect(() => {
+                connectWebSocket();
+                
+                // Load historical matches initially
+                fetchHistoricalMatches();
+                
+                // Fallback to HTTP polling if WebSocket doesn't connect within 5 seconds
+                const fallbackTimeout = setTimeout(() => {
+                    if (connectionStatus !== 'connected') {
+                        console.log('WebSocket timeout, falling back to HTTP polling');
+                        fetchMatches();
+                        // Poll every 5 seconds
+                        const pollInterval = setInterval(fetchMatches, 5000);
+                        return () => clearInterval(pollInterval);
+                    }
+                }, 5000);
+                
+                return () => {
+                    clearTimeout(fallbackTimeout);
+                    if (reconnectTimeoutRef.current) {
+                        clearTimeout(reconnectTimeoutRef.current);
+                    }
+                    if (searchDebounceRef.current) {
+                        clearTimeout(searchDebounceRef.current);
+                    }
+                    if (filterTimeoutRef.current) {
+                        clearTimeout(filterTimeoutRef.current);
+                    }
+                    if (wsRef.current) {
+                        wsRef.current.close();
+                    }
+                };
+            }, []);
+
+            // Add notification
+            const addNotification = (message) => {
+                const id = notificationIdRef.current++;
+                setNotifications(prev => [...prev, { id, message }]);
+            };
+
+            // Remove notification
+            const removeNotification = (id) => {
+                setNotifications(prev => prev.filter(n => n.id !== id));
+            };
+
+            // Manual refresh
+            const handleRefresh = () => {
+                if (connectionStatus === 'connected' && wsRef.current) {
+                    wsRef.current.send('refresh');
+                } else {
+                    fetchMatches();
+                }
+                addNotification('Refreshing data...');
+            };
+
+            // Stable filtered matches with proper filter logic
+            const filteredMatches = useMemo(() => {
+                if (!matches || matches.length === 0) {
+                    return [];
+                }
+                
+                const filtered = matches.filter(match => {
+                    // Search filter
+                    const matchesSearch = searchTerm === '' || 
+                        match.teams?.home?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                        match.teams?.away?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                        match.league?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                        match.sport?.toLowerCase().includes(searchTerm.toLowerCase());
+                    
+                    // Sport filter
+                    const matchesSport = selectedSport === 'all' || match.sport === selectedSport;
+                    
+                    // Live/Pregame filter - simplified logic
+                    let matchesMode = true;
+                    if (filterMode === 'live') {
+                        matchesMode = match.live_fields?.is_live === true;
+                    } else if (filterMode === 'pregame') {
+                        matchesMode = match.live_fields?.is_live !== true;
+                    }
+                    // For 'all' mode, matchesMode stays true
+                    
+                    return matchesSearch && matchesSport && matchesMode;
+                });
+                
+                // Enhanced debug logging
+                console.log('Enhanced Filter Debug:', {
+                    totalMatches: matches.length,
+                    filteredCount: filtered.length,
+                    filterMode,
+                    selectedSport,
+                    searchTerm,
+                    liveMatches: matches.filter(m => m.live_fields?.is_live).length,
+                    pregameMatches: matches.filter(m => !m.live_fields?.is_live).length
+                });
+                    
+                return filtered;
+            }, [matches, searchTerm, selectedSport, filterMode]);
+
+            // Sports list with counts
+            const sportsWithCounts = useMemo(() => {
+                const sportCounts = {};
+                matches.forEach(match => {
+                    const sport = match.sport || 'Unknown';
+                    if (!sportCounts[sport]) {
+                        sportCounts[sport] = { total: 0, live: 0 };
+                    }
+                    sportCounts[sport].total++;
+                    if (match.live_fields?.is_live) {
+                        sportCounts[sport].live++;
+                    }
+                });
+                return sportCounts;
+            }, [matches]);
+
+            const sports = ['all', ...Object.keys(sportsWithCounts)];
+            const liveCount = matches.filter(m => m.live_fields?.is_live).length;
+            const pregameCount = matches.length - liveCount;
+
+            // Connection status indicator
+            const getStatusColor = () => {
+                switch (connectionStatus) {
+                    case 'connected': return 'status-connected';
+                    case 'connecting': return 'status-connecting';
+                    case 'disconnected': return 'status-disconnected';
+                    default: return 'text-gray-400';
+                }
+            };
+
+            const getStatusText = () => {
+                switch (connectionStatus) {
+                    case 'connected': return 'Connected';
+                    case 'connecting': return 'Connecting...';
+                    case 'disconnected': return 'Disconnected';
+                    default: return 'Unknown';
+                }
+            };
+
+            if (loading) {
+                return (
+                    <div className="min-h-screen flex items-center justify-center">
+                        <div className="text-center">
+                            <div className="inline-block animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-blue-500 mb-4"></div>
+                            <h2 className="text-xl font-semibold text-gray-300">Loading Dashboard...</h2>
+                        </div>
+                    </div>
+                );
+            }
+
+            return (
+                <div className="min-h-screen p-4 md:p-6 lg:p-8">
+                    {/* Notifications */}
+                    <div className="fixed top-4 right-4 z-50 space-y-2">
+                        {notifications.map(notification => (
+                            <Notification 
+                                key={notification.id} 
+                                message={notification.message}
+                                onClose={() => removeNotification(notification.id)}
+                            />
+                        ))}
+                    </div>
+
+                    {/* Header with Stats */}
+                    <div className="max-w-[1920px] mx-auto mb-6">
+                        <div className="card rounded-lg p-6">
+                            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
+                                <div>
+                                    <h1 className="text-3xl font-bold text-white mb-2">Live Odds Dashboard For Bet365</h1>
+                                    <div className="flex items-center gap-4 text-sm">
+                                        <span className={`flex items-center gap-2 ${getStatusColor()}`}>
+                                            <span className="w-2 h-2 rounded-full bg-current"></span>
+                                            {getStatusText()}
+                                        </span>
+                                        {lastUpdate && (
+                                            <span className="text-gray-400">
+                                                Last update: {lastUpdate}
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={handleRefresh}
+                                    className="btn-secondary px-4 py-2 rounded-md font-medium flex items-center gap-2 text-sm"
+                                >
+                                    <RefreshIcon spinning={false} />
+                                    <span>Refresh</span>
+                                </button>
+                            </div>
+
+                            {/* Stats Grid */}
+                            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                                <div className="stat-card">
+                                    <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">Total Matches</p>
+                                    <p className="text-2xl font-bold text-white">{summary.total_matches || matches.length}</p>
+                                    <p className="text-xs text-gray-500 mt-1">Live + Pregame</p>
+                                </div>
+                                <div className="stat-card">
+                                    <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">Live Now</p>
+                                    <p className="text-2xl font-bold text-red-500">{summary.live_matches || liveCount}</p>
+                                    <p className="text-xs text-gray-500 mt-1">In Progress</p>
+                                </div>
+                                <div className="stat-card">
+                                    <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">Pregame</p>
+                                    <p className="text-2xl font-bold text-blue-400">{summary.pregame_matches || (matches.length - liveCount)}</p>
+                                    <p className="text-xs text-gray-500 mt-1">Scheduled</p>
+                                </div>
+                                <div className="stat-card">
+                                    <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">Sports</p>
+                                    <p className="text-2xl font-bold text-green-400">{summary.sports_processed || Object.keys(sportsWithCounts).length}</p>
+                                    <p className="text-xs text-gray-500 mt-1">Available</p>
+                                </div>
+                                <div className="stat-card">
+                                    <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">System Status</p>
+                                    <div className="flex items-center gap-2 mb-1">
+                                        <div className={`w-2 h-2 rounded-full ${getStatusColor().replace('status-', 'bg-').replace('connected', 'green-500').replace('connecting', 'yellow-500').replace('disconnected', 'red-500')}`}></div>
+                                        <p className="text-sm font-bold text-white">{getStatusText()}</p>
+                                    </div>
+                                    <p className="text-xs text-gray-500 mt-1">
+                                        {connectionStatus === 'connected' ? 'Real-time Updates' : 'Check Connection'}
+                                    </p>
+                                </div>
+                                <div className="stat-card">
+                                    <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">Last Update</p>
+                                    <p className="text-sm font-bold text-white">
+                                        {lastUpdate ? new Date().toLocaleTimeString() : 'Never'}
+                                    </p>
+                                    <p className="text-xs text-gray-500 mt-1">
+                                        {connectionStatus === 'connected' ? 'Live Feed Active' : 'Waiting...'}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* System Performance Section */}
+                    <div className="max-w-[1920px] mx-auto mb-6">
+                        <div className="card rounded-lg p-6">
+                            <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                                <svg className="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                                </svg>
+                                System Performance & Data Sources
+                            </h3>
+                            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                                <div className="bg-[#0d1117] border border-[#30363d] rounded p-3">
+                                    <p className="text-xs text-gray-400 mb-1">Live Scraper</p>
+                                    <p className="text-sm font-bold text-green-400">Active</p>
+                                    <p className="text-xs text-gray-500">concurrency_live_bet365.py</p>
+                                </div>
+                                <div className="bg-[#0d1117] border border-[#30363d] rounded p-3">
+                                    <p className="text-xs text-gray-400 mb-1">Pregame Monitor</p>
+                                    <p className="text-sm font-bold text-blue-400">Real-time</p>
+                                    <p className="text-xs text-gray-500">realtime_monitor.py</p>
+                                </div>
+                                <div className="bg-[#0d1117] border border-[#30363d] rounded p-3">
+                                    <p className="text-xs text-gray-400 mb-1">Update Rate</p>
+                                    <p className="text-sm font-bold text-white">~1-2s</p>
+                                    <p className="text-xs text-gray-500">Live Cycles</p>
+                                </div>
+                                <div className="bg-[#0d1117] border border-[#30363d] rounded p-3">
+                                    <p className="text-xs text-gray-400 mb-1">Data Quality</p>
+                                    <p className="text-sm font-bold text-yellow-400">High</p>
+                                    <p className="text-xs text-gray-500">Validated Odds</p>
+                                </div>
+                                <div className="bg-[#0d1117] border border-[#30363d] rounded p-3">
+                                    <p className="text-xs text-gray-400 mb-1">WebSocket</p>
+                                    <p className={`text-sm font-bold ${connectionStatus === 'connected' ? 'text-green-400' : 'text-red-400'}`}>
+                                        {connectionStatus === 'connected' ? 'Connected' : 'Disconnected'}
+                                    </p>
+                                    <p className="text-xs text-gray-500">Real-time Feed</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Filters */}
+                    <div className="max-w-[1920px] mx-auto mb-6">
+                        <div className="card rounded-lg p-6">
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-4">
+                                {/* Search */}
+                                <div className="lg:col-span-4">
+                                    <div className="relative">
+                                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-500">
+                                            <SearchIcon />
+                                        </div>
+                                        <input
+                                            type="text"
+                                            placeholder="Search teams or leagues..."
+                                            onChange={(e) => debouncedSearch(e.target.value)}
+                                            className="w-full pl-10 pr-4 py-2.5 rounded-md text-sm"
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* Sport Filter */}
+                                <div className="lg:col-span-5">
+                                    <select
+                                        value={selectedSport}
+                                        onChange={(e) => setSelectedSport(e.target.value)}
+                                        className="w-full px-4 py-2.5 rounded-md text-sm appearance-none cursor-pointer"
+                                    >
+                                        <option value="all" className="bg-[#161b22]">
+                                            All Sports ({matches.length})
+                                        </option>
+                                        {Object.entries(sportsWithCounts).map(([sport, counts]) => (
+                                            <option key={sport} value={sport} className="bg-[#161b22]">
+                                                {sport} ({counts.total}{counts.live > 0 ? `, ${counts.live} live` : ''})
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                {/* Live/Pregame Toggles - Fixed State Management */}
+                                <div className="lg:col-span-3 grid grid-cols-3 gap-2">
+                                    <button
+                                        onClick={() => handleFilterChange('all')}
+                                        className={`px-3 py-2.5 rounded-md font-medium text-xs flex items-center justify-center gap-1.5 transition-all duration-200 ${
+                                            filterMode === 'all' ? 'bg-gray-600 text-white border border-gray-500' : 'bg-transparent border border-gray-600 text-gray-400 hover:bg-gray-700/50'
+                                        }`}
+                                    >
+                                        <div className={`w-1.5 h-1.5 rounded-full ${filterMode === 'all' ? 'bg-white' : 'bg-gray-600'}`}></div>
+                                        <span>All ({matches.length})</span>
+                                    </button>
+                                    <button
+                                        onClick={() => handleFilterChange(filterMode === 'live' ? 'all' : 'live')}
+                                        className={`px-3 py-2.5 rounded-md font-medium text-xs flex items-center justify-center gap-1.5 transition-all duration-200 ${
+                                            filterMode === 'live' ? 'btn-live text-white' : 'btn-live-outline hover:bg-red-600/10'
+                                        }`}
+                                    >
+                                        <div className={`w-1.5 h-1.5 rounded-full ${filterMode === 'live' ? 'bg-white live-indicator' : 'bg-red-600'}`}></div>
+                                        <span>Live ({liveCount})</span>
+                                    </button>
+                                    <button
+                                        onClick={() => handleFilterChange(filterMode === 'pregame' ? 'all' : 'pregame')}
+                                        className={`px-3 py-2.5 rounded-md font-medium text-xs flex items-center justify-center gap-1.5 transition-all duration-200 ${
+                                            filterMode === 'pregame' ? 'bg-blue-600 text-white border border-blue-500' : 'bg-transparent border border-blue-600 text-blue-400 hover:bg-blue-600/10'
+                                        }`}
+                                    >
+                                        <div className={`w-1.5 h-1.5 rounded-full ${filterMode === 'pregame' ? 'bg-white' : 'bg-blue-600'}`}></div>
+                                        <span>Pregame ({pregameCount})</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Matches Grid */}
+                    <div className="max-w-[1920px] mx-auto">
+                        {filteredMatches.length === 0 ? (
+                            <div className="card rounded-lg p-12 text-center">
+                                <p className="text-xl font-medium text-gray-400 mb-4">No matches found</p>
+                                <button
+                                    onClick={() => {
+                                        setSearchTerm('');
+                                        setSelectedSport('all');
+                                        handleFilterChange('all');
+                                        setExpandedMatch(null);
+                                        // Clear search input
+                                        const searchInput = document.querySelector('input[placeholder="Search teams or leagues..."]');
+                                        if (searchInput) searchInput.value = '';
+                                    }}
+                                    className="btn-primary px-6 py-2.5 rounded-md font-medium text-sm text-white"
+                                >
+                                    Clear Filters
+                                </button>
+                            </div>
+                        ) : filterLoading ? (
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
+                                {/* Loading skeleton */}
+                                {Array.from({ length: 8 }).map((_, i) => (
+                                    <div key={`skeleton-${i}`} className="card rounded-lg p-4 animate-pulse">
+                                        <div className="h-4 bg-gray-700 rounded mb-2"></div>
+                                        <div className="h-8 bg-gray-700 rounded mb-2"></div>
+                                        <div className="h-8 bg-gray-700 rounded mb-4"></div>
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <div className="h-12 bg-gray-700 rounded"></div>
+                                            <div className="h-12 bg-gray-700 rounded"></div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 filter-transition ${filterLoading ? 'opacity-50 pointer-events-none' : ''}`}>
+                                {filterLoading && (
+                                    <div className="col-span-full flex items-center justify-center py-8">
+                                        <div className="inline-block animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
+                                        <span className="ml-3 text-gray-400">Updating filters...</span>
+                                    </div>
+                                )}
+                                {!filterLoading && filteredMatches.map((match) => {
+                                    // Error boundary check for match data
+                                    if (!match || !match.teams || !match.teams.home || !match.teams.away) {
+                                        console.warn('Invalid match data:', match);
+                                        return null;
+                                    }
+                                    
+                                    return (
+                                        <div 
+                                            key={`match-${match.id}-${filterMode}`} 
+                                            className={`card rounded-lg overflow-hidden match-card-stable ${updatedMatches.has(match.id) ? 'update-flash' : ''}`}
+                                        >
+                                        {/* Header */}
+                                        <div className="bg-[#0d1117] px-4 py-3 border-b border-[#30363d]">
+                                            <div className="flex items-center justify-between mb-1">
+                                                <div className="flex items-center gap-2">
+                                                    <p className="font-semibold text-white text-sm">{match.sport}</p>
+                                                    {(match.date || match.live_fields?.date) && (
+                                                        <span className="text-xs bg-gray-700/50 text-gray-300 px-2 py-0.5 rounded border border-gray-600">
+                                                            {formatDate(match.date || match.live_fields?.date)}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                {match.live_fields?.is_live ? (
+                                                    <div className="flex items-center gap-1.5 bg-red-600/20 px-2 py-0.5 rounded border border-red-600/40">
+                                                        <div className="w-1.5 h-1.5 bg-red-600 rounded-full live-indicator"></div>
+                                                        <span className="text-red-500 text-xs font-semibold">LIVE</span>
+                                                    </div>
+                                                ) : (
+                                                    <div className="flex items-center gap-1.5 bg-blue-600/20 px-2 py-0.5 rounded border border-blue-600/40">
+                                                        <div className="w-1.5 h-1.5 bg-blue-600 rounded-full"></div>
+                                                        <span className="text-blue-400 text-xs font-semibold">PREGAME</span>
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <p className="text-xs text-gray-500">{match.league}</p>
+                                            <div className="flex items-center justify-between mt-1">
+                                                <div className="flex flex-col">
+                                                    <p className="text-xs text-gray-500">
+                                                        {match.live_fields?.is_live ? 
+                                                            (match.live_fields?.time || match.live_fields?.status || 'In Progress') :
+                                                            (match.time || match.live_fields?.status || 'Scheduled')
+                                                        }
+                                                    </p>
+                                                    {(match.date || match.live_fields?.date) && (
+                                                        <p className="text-xs text-gray-400 font-medium mt-0.5">
+                                                            📅 {formatDate(match.date || match.live_fields?.date)}
+                                                        </p>
+                                                    )}
+                                                </div>
+                                                <div className="text-right">
+                                                    {match.live_fields?.is_live ? (
+                                                        <div className="flex items-center gap-1">
+                                                            <div className="w-1.5 h-1.5 bg-red-500 rounded-full live-indicator"></div>
+                                                            <span className="text-xs text-red-400 font-semibold">LIVE NOW</span>
+                                                        </div>
+                                                    ) : (
+                                                        <div className="flex items-center gap-1">
+                                                            <div className="w-1.5 h-1.5 bg-blue-500 rounded-full"></div>
+                                                            <span className="text-xs text-blue-400 font-semibold">UPCOMING</span>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Teams - Sport-specific rendering */}
+                                        <div className="p-4 space-y-2">
+                                            {match.sport === 'PGA' || match.sport === 'Golf' ? (
+                                                // Golf/PGA Tournament format
+                                                <div className="space-y-3">
+                                                    <div className="bg-[#0d1117] rounded px-3 py-3 border border-[#30363d]">
+                                                        <div className="flex items-center gap-2 mb-2">
+                                                            <span className="text-lg">🏌️</span>
+                                                            <span className="text-xs text-gray-400 uppercase tracking-wide">Player</span>
+                                                        </div>
+                                                        <div className="font-medium text-white text-lg truncate">{match.teams.home}</div>
+                                                        {match.live_fields?.is_live && match.scores.home && (
+                                                            <div className="mt-1 text-sm text-gray-300">Score: {match.scores.home}</div>
+                                                        )}
+                                                    </div>
+                                                    <div className="bg-[#0d1117] rounded px-3 py-2 border border-[#30363d]">
+                                                        <div className="flex items-center gap-2 mb-1">
+                                                            <span className="text-sm">🏆</span>
+                                                            <span className="text-xs text-gray-400 uppercase tracking-wide">Tournament</span>
+                                                        </div>
+                                                        <div className="text-sm text-gray-300 truncate">
+                                                            {match.teams.away.replace('Field (', '').replace(')', '')}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                // Traditional team vs team format
+                                                <>
+                                                    <div className="flex items-center justify-between bg-[#0d1117] rounded px-3 py-2 border border-[#30363d]">
+                                                        <span className="font-medium text-sm text-gray-200 truncate flex-1">{match.teams.home}</span>
+                                                        {match.live_fields?.is_live && (
+                                                            <span className="text-xl font-bold text-white ml-3">{match.scores.home}</span>
+                                                        )}
+                                                    </div>
+                                                    <div className="flex items-center justify-between bg-[#0d1117] rounded px-3 py-2 border border-[#30363d]">
+                                                        <span className="font-medium text-sm text-gray-200 truncate flex-1">{match.teams.away}</span>
+                                                        {match.live_fields?.is_live && (
+                                                            <span className="text-xl font-bold text-white ml-3">{match.scores.away}</span>
+                                                        )}
+                                                    </div>
+                                                </>
+                                            )}
+                                        </div>
+
+                                        {/* Odds */}
+                                        <div className="px-4 pb-4">
+                                            {/* Primary Odds - Sport-specific rendering */}
+                                            <div className="mb-3">
+                                                {match.sport === 'PGA' || match.sport === 'Golf' ? (
+                                                    // Golf Tournament Odds - Show player odds to win
+                                                    <>
+                                                        <p className="text-xs text-gray-400 mb-2 uppercase tracking-wide font-medium">Tournament Winner</p>
+                                                        <div className="space-y-2">
+                                                            <button className="odds-button rounded px-3 py-3 text-center w-full">
+                                                                <div className="flex items-center justify-between">
+                                                                    <div className="flex items-center gap-2">
+                                                                        <span className="text-lg">🏌️</span>
+                                                                        <span className="text-sm text-gray-200 truncate">{match.teams.home}</span>
+                                                                    </div>
+                                                                    <div className="text-right">
+                                                                        <p className={`text-lg font-bold ${
+                                                                            (match.odds?.moneyline?.[0] || match.odds?.home || '').toString().startsWith('-') 
+                                                                                ? 'text-red-400' 
+                                                                                : (match.odds?.moneyline?.[0] || match.odds?.home || '').toString().startsWith('+') 
+                                                                                ? 'text-green-400' 
+                                                                                : 'text-white'
+                                                                        }`}>
+                                                                            {match.odds?.moneyline?.[0] || match.odds?.home || 'TBD'}
+                                                                        </p>
+                                                                        {(match.odds?.moneyline?.[0] || match.odds?.home || '').toString().startsWith('+') && (
+                                                                            <p className="text-xs text-green-300">Underdog</p>
+                                                                        )}
+                                                                        {(match.odds?.moneyline?.[0] || match.odds?.home || '').toString().startsWith('-') && (
+                                                                            <p className="text-xs text-red-300">Favorite</p>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+                                                            </button>
+                                                        </div>
+                                                    </>
+                                                ) : (
+                                                    // Traditional team vs team moneyline
+                                                    <>
+                                                        <p className="text-xs text-gray-400 mb-2 uppercase tracking-wide font-medium">Moneyline</p>
+                                                        <div className="grid grid-cols-2 gap-2">
+                                                            <button className="odds-button rounded px-3 py-2.5 text-center">
+                                                                <p className="text-xs text-gray-400 mb-0.5 truncate">{match.teams.home}</p>
+                                                                <div className="flex flex-col">
+                                                                    <p className={`text-sm font-bold ${
+                                                                        (match.odds?.moneyline?.[0] || match.odds?.home || '').toString().startsWith('-') 
+                                                                            ? 'text-red-400' 
+                                                                            : (match.odds?.moneyline?.[0] || match.odds?.home || '').toString().startsWith('+') 
+                                                                            ? 'text-green-400' 
+                                                                            : 'text-white'
+                                                                    }`}>
+                                                                        {match.odds?.moneyline?.[0] || match.odds?.home || 'TBD'}
+                                                                    </p>
+                                                                    {(match.odds?.moneyline?.[0] || match.odds?.home || '').toString().startsWith('-') && (
+                                                                        <p className="text-xs text-red-300">Favorite</p>
+                                                                    )}
+                                                                </div>
+                                                            </button>
+                                                            <button className="odds-button rounded px-3 py-2.5 text-center">
+                                                                <p className="text-xs text-gray-400 mb-0.5 truncate">{match.teams.away}</p>
+                                                                <div className="flex flex-col">
+                                                                    <p className={`text-sm font-bold ${
+                                                                        (match.odds?.moneyline?.[1] || match.odds?.away || '').toString().startsWith('-') 
+                                                                            ? 'text-red-400' 
+                                                                            : (match.odds?.moneyline?.[1] || match.odds?.away || '').toString().startsWith('+') 
+                                                                            ? 'text-green-400' 
+                                                                            : 'text-white'
+                                                                    }`}>
+                                                                        {match.odds?.moneyline?.[1] || match.odds?.away || 'TBD'}
+                                                                    </p>
+                                                                    {(match.odds?.moneyline?.[1] || match.odds?.away || '').toString().startsWith('-') && (
+                                                                        <p className="text-xs text-red-300">Favorite</p>
+                                                                    )}
+                                                                </div>
+                                                            </button>
+                                                        </div>
+                                                    </>
+                                                )}
+                                            </div>
+
+                                            {/* Additional Odds for Both Live and Pregame Matches - Not for Golf/PGA */}
+                                            {(match.odds?.spread || match.odds?.total) && match.sport !== 'PGA' && match.sport !== 'Golf' && (
+                                                <div className="space-y-2 mb-3">
+                                                    {match.odds?.spread && (
+                                                        <div>
+                                                            <p className="text-xs text-gray-400 mb-1 uppercase tracking-wide font-medium">Point Spread</p>
+                                                            <div className="grid grid-cols-2 gap-2">
+                                                                <button className="odds-button rounded px-2 py-2 text-center">
+                                                                    <p className="text-xs text-gray-300 mb-0.5">{match.teams.home}</p>
+                                                                    <div className="flex flex-col">
+                                                                        <p className="text-xs font-bold text-blue-400 mb-0.5">
+                                                                            {(match.odds.spread[0] || 'N/A').toString().replace(/([+-]\d+\.?\d*)\s*(.*)/, '$1')}
+                                                                        </p>
+                                                                        <p className="text-xs text-white">
+                                                                            {(match.odds.spread[0] || 'N/A').toString().replace(/([+-]\d+\.?\d*)\s*(.*)/, '$2') || 'Even'}
+                                                                        </p>
+                                                                    </div>
+                                                                </button>
+                                                                <button className="odds-button rounded px-2 py-2 text-center">
+                                                                    <p className="text-xs text-gray-300 mb-0.5">{match.teams.away}</p>
+                                                                    <div className="flex flex-col">
+                                                                        <p className="text-xs font-bold text-blue-400 mb-0.5">
+                                                                            {(match.odds.spread[1] || 'N/A').toString().replace(/([+-]\d+\.?\d*)\s*(.*)/, '$1')}
+                                                                        </p>
+                                                                        <p className="text-xs text-white">
+                                                                            {(match.odds.spread[1] || 'N/A').toString().replace(/([+-]\d+\.?\d*)\s*(.*)/, '$2') || 'Even'}
+                                                                        </p>
+                                                                    </div>
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                    {match.odds?.total && (
+                                                        <div>
+                                                            <p className="text-xs text-gray-400 mb-1 uppercase tracking-wide font-medium">Over/Under</p>
+                                                            <div className="grid grid-cols-2 gap-2">
+                                                                <button className="odds-button rounded px-2 py-2 text-center">
+                                                                    <div className="flex flex-col">
+                                                                        <p className="text-xs font-bold text-orange-400 mb-0.5">
+                                                                            {(match.odds.total[0] || 'N/A').toString().includes('O ') ? 
+                                                                                (match.odds.total[0] || 'N/A').toString().replace('O ', 'Over ').replace(/([+-]\d+\.?\d*)\s*(.*)/, '$1') :
+                                                                                (match.odds.total[0] || 'N/A').toString().replace(/([+-]\d+\.?\d*)\s*(.*)/, '$1')
+                                                                            }
+                                                                        </p>
+                                                                        <p className="text-xs text-white">
+                                                                            {(match.odds.total[0] || 'N/A').toString().includes('O ') ? 
+                                                                                'Over ' + (match.odds.total[0] || 'N/A').toString().replace('O ', '').replace(/(\d+\.?\d*)\s*(.*)/, '$1') :
+                                                                                (match.odds.total[0] || 'N/A').toString().replace(/([+-]\d+\.?\d*)\s*(.*)/, '$2') || 'Even'
+                                                                            }
+                                                                        </p>
+                                                                    </div>
+                                                                </button>
+                                                                <button className="odds-button rounded px-2 py-2 text-center">
+                                                                    <div className="flex flex-col">
+                                                                        <p className="text-xs font-bold text-orange-400 mb-0.5">
+                                                                            {(match.odds.total[1] || 'N/A').toString().includes('U ') ? 
+                                                                                (match.odds.total[1] || 'N/A').toString().replace('U ', 'Under ').replace(/([+-]\d+\.?\d*)\s*(.*)/, '$1') :
+                                                                                (match.odds.total[1] || 'N/A').toString().replace(/([+-]\d+\.?\d*)\s*(.*)/, '$1')
+                                                                            }
+                                                                        </p>
+                                                                        <p className="text-xs text-white">
+                                                                            {(match.odds.total[1] || 'N/A').toString().includes('U ') ? 
+                                                                                'Under ' + (match.odds.total[1] || 'N/A').toString().replace('U ', '').replace(/(\d+\.?\d*)\s*(.*)/, '$1') :
+                                                                                (match.odds.total[1] || 'N/A').toString().replace(/([+-]\d+\.?\d*)\s*(.*)/, '$2') || 'Even'
+                                                                            }
+                                                                        </p>
+                                                                    </div>
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+
+                                            {/* More Markets Button - Only if additional markets exist */}
+                                            {match.markets && match.markets.length > 0 && (
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.preventDefault();
+                                                        e.stopPropagation();
+                                                        setExpandedMatch(prev => {
+                                                            // Toggle logic with proper state management
+                                                            return prev === match.id ? null : match.id;
+                                                        });
+                                                    }}
+                                                    className="w-full btn-secondary rounded px-3 py-2 text-xs font-medium text-gray-300 flex items-center justify-center gap-1.5 hover:bg-[#30363d] transition-colors duration-150"
+                                                >
+                                                    <span>More Markets ({match.markets.length})</span>
+                                                    {expandedMatch === match.id ? <ChevronUpIcon /> : <ChevronDownIcon />}
+                                                </button>
+                                            )}
+
+                                            {/* Expanded Markets - Stable Animation */}
+                                            {expandedMatch === match.id && match.markets && (
+                                                <div className="mt-2 space-y-2 animate-in slide-in-from-top-2 duration-200">
+                                                    {match.markets.map((market, idx) => (
+                                                        <div key={`${match.id}-market-${idx}`} className="bg-[#0d1117] rounded p-3 border border-[#30363d]">
+                                                            <p className="text-xs font-medium text-gray-400 mb-2 uppercase tracking-wide">
+                                                                {market.name || market.type || 'Market'}
+                                                            </p>
+                                                            {market.selections && market.selections.map((selection, selIdx) => (
+                                                                <button 
+                                                                    key={`${match.id}-market-${idx}-sel-${selIdx}`}
+                                                                    className="w-full odds-button rounded px-3 py-2 text-left mb-1.5 last:mb-0 hover:bg-[#30363d] transition-colors duration-150"
+                                                                    onClick={(e) => {
+                                                                        e.preventDefault();
+                                                                        e.stopPropagation();
+                                                                        console.log('Selected:', selection.name, selection.odds);
+                                                                    }}
+                                                                >
+                                                                    <div className="flex justify-between items-center">
+                                                                        <span className="text-xs text-gray-200">{selection.name}</span>
+                                                                        <span className="text-sm font-bold text-white">{selection.odds}</span>
+                                                                    </div>
+                                                                </button>
+                                                            ))}
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Historical/Recently Removed Games Section */}
+                    <div className="max-w-[1920px] mx-auto mt-8">
+                        <div className="card rounded-lg p-6">
+                            <div className="flex items-center justify-between mb-4">
+                                <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                                    <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                    </svg>
+                                    Recently Removed Games
+                                </h3>
+                                <button
+                                    onClick={() => {
+                                        setShowHistory(!showHistory);
+                                        if (!showHistory) fetchHistoricalMatches();
+                                    }}
+                                    className="btn-secondary px-4 py-2 rounded-md font-medium text-sm flex items-center gap-2"
+                                >
+                                    {showHistory ? 'Hide History' : 'Show History'}
+                                    {showHistory ? <ChevronUpIcon /> : <ChevronDownIcon />}
+                                </button>
+                            </div>
+                            
+                            {showHistory && (
+                                <div>
+                                    {historicalMatches.length === 0 ? (
+                                        <div className="text-center py-8">
+                                            <p className="text-gray-400">No recent game removals</p>
+                                            <p className="text-xs text-gray-500 mt-2">Games that are completed or removed will appear here</p>
+                                        </div>
+                                    ) : (
+                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
+                                            {historicalMatches.map((match, index) => (
+                                                <div key={index} className="bg-[#0d1117] border border-[#30363d] rounded-lg p-4">
+                                                    <div className="flex items-center justify-between mb-2">
+                                                        <span className="text-xs font-semibold text-gray-400">{match.sport}</span>
+                                                        <span className="text-xs bg-red-600/20 text-red-400 px-2 py-0.5 rounded border border-red-600/40">
+                                                            Removed
+                                                        </span>
+                                                    </div>
+                                                    <div className="space-y-1 mb-3">
+                                                        <p className="text-sm font-medium text-gray-200">{match.teams.home}</p>
+                                                        <p className="text-xs text-gray-400">vs</p>
+                                                        <p className="text-sm font-medium text-gray-200">{match.teams.away}</p>
+                                                    </div>
+                                                    <div className="text-xs text-gray-500">
+                                                        <p>{match.date} {match.time}</p>
+                                                        {match.removal_time && (
+                                                            <p className="mt-1">Removed: {new Date(match.removal_time).toLocaleString()}</p>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<Dashboard />);
+    </script>
+</body>
+</html>

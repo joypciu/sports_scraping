@@ -1,0 +1,191 @@
+# Bet365 Scraping Platform - Git Ignore File
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual Environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Conda Environments
+.conda/
+.condarc
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+cover/
+
+# Scraped Data Files (Keep structure, ignore content)
+bet365_live_current.json
+bet365_live_history.json
+bet365_live_statistics.json
+bet365_statistics.json
+outputs/current_pregame_data.json
+outputs/realtime/cycle_statistics.json
+outputs/realtime/logs/*.log
+outputs/html/*.html
+outputs/debug/*
+
+# Browser Data & Cache
+.playwright/
+playwright.config.js
+.patchright/
+browser_data/
+user_data/
+chrome_data/
+chromium_data/
+firefox_data/
+webkit_data/
+
+# Logs
+*.log
+logs/
+log/
+*.log.*
+
+# Temporary files
+*.tmp
+*.temp
+.tmp/
+temp/
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+
+# IDE and Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.sublime-*
+*.sublime-project
+*.sublime-workspace
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# IPython
+profile_default/
+ipython_config.py
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Database
+*.db
+*.sqlite3
+
+# Node.js (if any frontend dependencies)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+yarn.lock
+
+# Windows specific
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+*.lnk
+
+# Screenshots and recordings (if any debugging captures)
+screenshots/
+recordings/
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.mp4
+*.webm
+
+# Configuration files with sensitive data
+config.json
+secrets.json
+credentials.json
+*.key
+*.pem
+*.crt
+
+# Backup files
+*.bak
+*.backup
+*.old
+*~
+
+# Keep important directories but ignore their contents initially
+outputs/html/.gitkeep
+outputs/debug/.gitkeep
+outputs/realtime/logs/.gitkeep
+
+# Keep essential configuration
+!bet365_selectors_detailed.json
+!requirements.txt
+!*.md
+
+# Documentation - keep all markdown files
+!README.md
+!INSTRUCTIONS.md
+!ADDING_NEW_SPORTS.md
+!ARCHITECTURE.md
+!DOCUMENTATION_SUMMARY.md

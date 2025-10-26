@@ -1,0 +1,39 @@
+# Bet365 Scraping System Requirements
+
+# Core Web Scraping
+patchright>=1.49.0
+playwright>=1.49.0
+
+# Async Processing & HTTP
+asyncio
+aiofiles>=24.1.0
+httpx>=0.27.0
+
+# Web Framework & API
+fastapi>=0.115.0
+uvicorn[standard]>=0.31.0
+websockets>=13.1
+python-multipart
+
+# Data Processing
+beautifulsoup4>=4.12.3
+lxml>=5.3.0
+pandas>=2.2.0
+numpy>=1.26.0
+
+# JSON & Data Handling
+orjson>=3.10.0
+
+# Logging & Utilities
+python-dateutil>=2.9.0
+pytz>=2024.1
+
+# Optional - Performance Monitoring
+psutil>=6.0.0
+
+# Development & Testing (Optional)
+pytest>=8.0.0
+pytest-asyncio>=0.24.0
+
+# Note: This system is designed for Python 3.8+ 
+# Tested with conda environment "joy" at C:\Users\User\Desktop\thesis\data\joy
